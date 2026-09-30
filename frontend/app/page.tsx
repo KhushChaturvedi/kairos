@@ -1,235 +1,346 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
-import TopBar from "../components/TopBar";
-import IncidentFeed from "../components/IncidentFeed";
+import { useEffect, useState } from "react";
+
 import ApprovalCards from "../components/ApprovalCards";
 import ChangesPanel from "../components/ChangesPanel";
-import PlanPanel from "../components/PlanPanel";
 import EmergencyForm from "../components/EmergencyForm";
-import { approve, getState, reset, triggerEvent } from "../lib/api";
-import type { Incident, State } from "../lib/types";
+import EventLog from "../components/EventLog";
+import IncidentFeed from "../components/IncidentFeed";
+import PlanPanel from "../components/PlanPanel";
+import TopBar from "../components/TopBar";
+
+import {
+  approve,
+  getState,
+  reportIncident,
+  reset,
+  resolveIncident,
+  setResourceStatus,
+  triggerEvent,
+} from "../lib/api";
+
+import type { State } from "../lib/types";
 
 const MapView = dynamic(() => import("../components/MapView"), {
   ssr: false,
 });
 
-const emptyState: State = {
-  incidents: [],
-  resources: [],
-  facilities: [],
-  plan: {
-    version: 0,
-    assignments: [],
-    changes: [],
-    summary: "Loading response plan...",
-  },
-  approvals: [],
-  event_log: [],
-  step: 0,
+type PickedLocation = {
+  lat: number;
+  lng: number;
 };
 
 export default function Home() {
-  const [state, setState] = useState<State>(emptyState);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<State | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const loadState = useCallback(async () => {
-    try {
-      setError(null);
-
-      const nextState = await getState();
-
-      setState(nextState);
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load Kairos state.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [pickedLocation, setPickedLocation] =
+    useState<PickedLocation | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadState() {
+      try {
+        setError(null);
+
+        const result = await getState();
+
+        if (!cancelled) {
+          setState(result);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load Kairos state.",
+          );
+        }
+      }
+    }
+
     void loadState();
-  }, [loadState]);
 
-  const handleTriggerEvent = async () => {
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function runAction(fn: () => Promise<State>) {
     try {
-      setLoading(true);
+      setBusy(true);
       setError(null);
 
-      const nextState = await triggerEvent();
+      const result = await fn();
 
-      setState(nextState);
+      setState(result);
+
+      return result;
     } catch (err) {
-      console.error(err);
-
-      setError(
+      const message =
         err instanceof Error
           ? err.message
-          : "Failed to trigger the next event.",
-      );
+          : "Kairos could not complete the action.";
+
+      setError(message);
+
+      throw err;
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
-  };
+  }
 
-  const handleReset = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  async function handleReport(input: {
+    description: string;
+    title?: string;
+    address?: string;
+    lat?: number;
+    lng?: number;
+  }) {
+    await runAction(() => reportIncident(input));
+    setPickedLocation(null);
+  }
 
-      const nextState = await reset();
+  async function handleResolveIncident(incidentId: string) {
+    await runAction(() => resolveIncident(incidentId));
+  }
 
-      setState(nextState);
-    } catch (err) {
-      console.error(err);
+  async function handleResourceStatus(
+    resourceId: string,
+    status: "available" | "unavailable",
+  ) {
+    await runAction(() =>
+      setResourceStatus(resourceId, status),
+    );
+  }
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to reset Kairos.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  async function handleApprove(approvalId: string) {
+    await runAction(() => approve(approvalId, "approve"));
+  }
 
-  const handleDecision = async (
-    approvalId: string,
-    decision: "approve" | "reject",
-  ) => {
-    try {
-      setLoading(true);
-      setError(null);
+  async function handleReject(approvalId: string) {
+    await runAction(() => approve(approvalId, "reject"));
+  }
 
-      const nextState = await approve(approvalId, decision);
+  async function handleNextDemoEvent() {
+    await runAction(() => triggerEvent());
+  }
 
-      setState(nextState);
-    } catch (err) {
-      console.error(err);
+  async function handleReset() {
+    await runAction(async () => {
+      const result = await reset();
+      setPickedLocation(null);
+      return result;
+    });
+  }
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to submit approval decision.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (!state) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          padding: "16px",
+          background: "var(--background)",
+          color: "var(--foreground)",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "1800px",
+            margin: "0 auto",
+          }}
+        >
+          <TopBar
+            planVersion={0}
+            step={0}
+            onTriggerEvent={handleNextDemoEvent}
+            onReset={handleReset}
+            busy={busy}
+          />
 
-  const handleEmergencySubmit = (incident: Incident) => {
-    setState((currentState) => ({
-      ...currentState,
-      incidents: [incident, ...currentState.incidents],
-      event_log: [
-        `Manual emergency reported: ${incident.title}.`,
-        ...currentState.event_log,
-      ],
-    }));
-  };
+          <div
+            style={{
+              marginTop: "14px",
+              padding: "20px",
+              border: "1px solid #1d3040",
+              borderRadius: "10px",
+              background: "#0d1822",
+              color: "#8ea1b2",
+              fontSize: "0.8rem",
+            }}
+          >
+            {error ?? "Connecting to Kairos backend..."}
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const pendingApprovals = state.approvals.filter(
+    (approval) => approval.status === "pending",
+  );
 
   return (
     <main
       style={{
         minHeight: "100vh",
-        background: "#071018",
-        color: "#e6edf3",
+        padding: "12px",
+        background: "var(--background)",
+        color: "var(--foreground)",
       }}
     >
-      <TopBar
-        planVersion={state.plan.version}
-        loading={loading}
-        onTriggerEvent={handleTriggerEvent}
-        onReset={handleReset}
-      />
-
-      {error && (
-        <div
-          style={{
-            margin: "12px 16px 0",
-            padding: "10px 12px",
-            border: "1px solid #991b1b",
-            borderRadius: "7px",
-            background: "#1f1115",
-            color: "#fca5a5",
-            fontSize: ".78rem",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
       <div
         style={{
+          maxWidth: "1800px",
+          margin: "0 auto",
           display: "grid",
-          gridTemplateColumns:
-            "minmax(220px, 25%) minmax(400px, 50%) minmax(260px, 25%)",
-          gap: "12px",
-          padding: "12px",
-          minHeight: "calc(100vh - 72px)",
+          gap: "10px",
         }}
       >
-        <div
+        <TopBar
+          planVersion={state.plan.version}
+          step={state.step}
+          onTriggerEvent={handleNextDemoEvent}
+          onReset={handleReset}
+          busy={busy}
+        />
+
+        <section
+          className="control-panel"
           style={{
-            minWidth: 0,
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
-            overflowY: "auto",
-            maxHeight: "calc(100vh - 96px)",
+            padding: "10px 14px",
+            borderColor:
+              state.plan.summary.includes("Awaiting resources")
+                ? "#7c4a03"
+                : undefined,
+            background:
+              state.plan.summary.includes("Awaiting resources")
+                ? "#171207"
+                : undefined,
           }}
         >
-          <EmergencyForm onSubmit={handleEmergencySubmit} />
+          <div
+            style={{
+              color: "#8ea1b2",
+              fontSize: "0.62rem",
+              letterSpacing: "0.08em",
+              marginBottom: "4px",
+            }}
+          >
+            CURRENT RESPONSE STATUS
+          </div>
 
-          <IncidentFeed incidents={state.incidents} />
-        </div>
+          <div
+            style={{
+              color: "#e6edf3",
+              fontSize: "0.82rem",
+              lineHeight: 1.45,
+            }}
+          >
+            {state.plan.summary}
+          </div>
+        </section>
 
-        <div
+        {error && (
+          <div
+            style={{
+              padding: "9px 12px",
+              border: "1px solid #991b1b",
+              borderRadius: "7px",
+              background: "#1f1115",
+              color: "#fca5a5",
+              fontSize: "0.72rem",
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        <section
           style={{
-            minWidth: 0,
-            minHeight: "500px",
+            display: "grid",
+            gridTemplateColumns:
+              "minmax(240px, 25%) minmax(420px, 50%) minmax(240px, 25%)",
+            gap: "10px",
+            alignItems: "start",
           }}
         >
-          <MapView
-            incidents={state.incidents}
-            resources={state.resources}
-            facilities={state.facilities}
-          />
-        </div>
+          <aside
+            style={{
+              display: "grid",
+              gap: "10px",
+              minWidth: 0,
+            }}
+          >
+            <EmergencyForm
+              onSubmit={handleReport}
+              submitting={busy}
+              pickedLocation={pickedLocation}
+              onClearLocation={() => setPickedLocation(null)}
+            />
 
-        <div
-          style={{
-            minWidth: 0,
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
-            overflowY: "auto",
-            maxHeight: "calc(100vh - 96px)",
-          }}
-        >
-          <ApprovalCards
-            approvals={state.approvals}
-            loading={loading}
-            onDecision={handleDecision}
-          />
+            <IncidentFeed
+              incidents={state.incidents}
+              onResolveIncident={handleResolveIncident}
+              busy={busy}
+            />
+          </aside>
 
-          <ChangesPanel changes={state.plan.changes} />
+          <section
+            style={{
+              minWidth: 0,
+              minHeight: "520px",
+            }}
+          >
+            <MapView
+              incidents={state.incidents}
+              resources={state.resources}
+              assignments={state.plan.assignments}
+              onMapClick={(lat, lng) => {
+                setPickedLocation({ lat, lng });
+              }}
+              pickedLocation={pickedLocation}
+              onResolveIncident={handleResolveIncident}
+              onSetResourceStatus={handleResourceStatus}
+              busy={busy}
+            />
+          </section>
 
-          <PlanPanel
-            summary={state.plan.summary}
-            assignments={state.plan.assignments}
-            incidents={state.incidents}
-            resources={state.resources}
-          />
-        </div>
+          <aside
+            style={{
+              display: "grid",
+              gap: "10px",
+              minWidth: 0,
+            }}
+          >
+            <ApprovalCards
+              approvals={pendingApprovals}
+              incidents={state.incidents}
+              resources={state.resources}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              busy={busy}
+            />
+
+            <ChangesPanel
+              changes={state.plan.changes}
+              resources={state.resources}
+              incidents={state.incidents}
+            />
+
+            <PlanPanel
+              summary={state.plan.summary}
+              assignments={state.plan.assignments}
+              resources={state.resources}
+              incidents={state.incidents}
+            />
+
+            <EventLog events={state.event_log} />
+          </aside>
+        </section>
       </div>
     </main>
   );

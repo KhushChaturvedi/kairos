@@ -1,160 +1,189 @@
 "use client";
 
-import type {
-  Assignment,
-  Incident,
-  Resource,
-} from "../lib/types";
+import type { Assignment, Incident, Resource } from "../lib/types";
 
 type PlanPanelProps = {
   summary: string;
   assignments: Assignment[];
-  incidents: Incident[];
   resources: Resource[];
+  incidents: Incident[];
 };
+
+function getResourceName(
+  resources: Resource[],
+  resourceId: string,
+): string {
+  return (
+    resources.find((resource) => resource.id === resourceId)?.name ??
+    resourceId
+  );
+}
+
+function getIncidentTitle(
+  incidents: Incident[],
+  incidentId: string,
+): string {
+  return (
+    incidents.find((incident) => incident.id === incidentId)?.title ??
+    incidentId
+  );
+}
+
+function renderSummary(summary: string) {
+  const marker = "Awaiting resources";
+
+  if (!summary.includes(marker)) {
+    return summary;
+  }
+
+  const parts = summary.split(marker);
+
+  return (
+    <>
+      {parts[0]}
+      <span
+        style={{
+          color: "#f59e0b",
+          fontWeight: 700,
+        }}
+      >
+        {marker}
+      </span>
+      {parts.slice(1).join(marker)}
+    </>
+  );
+}
 
 export default function PlanPanel({
   summary,
   assignments,
-  incidents,
   resources,
+  incidents,
 }: PlanPanelProps) {
-  const incidentMap = new Map(
-    incidents.map((incident) => [incident.id, incident]),
-  );
-
-  const resourceMap = new Map(
-    resources.map((resource) => [resource.id, resource]),
-  );
-
   return (
     <section
+      className="control-panel"
       style={{
         padding: "14px",
-        background: "#0a141d",
-        border: "1px solid #1d3040",
-        borderRadius: "10px",
       }}
     >
-      <h2
+      <div
         style={{
-          margin: "0 0 10px",
-          color: "#f8fafc",
-          fontSize: "0.95rem",
-          letterSpacing: "0.05em",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: "12px",
         }}
       >
-        RESPONSE PLAN
-      </h2>
+        <div className="panel-title">CURRENT PLAN</div>
+
+        <div
+          style={{
+            color: "#8ea1b2",
+            fontSize: "0.65rem",
+          }}
+        >
+          {assignments.length} assignment
+          {assignments.length === 1 ? "" : "s"}
+        </div>
+      </div>
 
       <div
         style={{
-          marginBottom: "14px",
           padding: "10px",
           borderRadius: "7px",
-          background: "#0d1822",
-          color: "#aebdca",
-          fontSize: "0.72rem",
+          border: "1px solid #294052",
+          background: "#0a141d",
+          color: "#e6edf3",
+          fontSize: "0.74rem",
           lineHeight: 1.5,
+          marginBottom: "10px",
         }}
       >
-        {summary}
+        {summary || "All units on standby."}
       </div>
 
       {assignments.length === 0 ? (
         <div
           style={{
-            padding: "18px 10px",
-            textAlign: "center",
-            color: "#71879a",
-            fontSize: "0.8rem",
+            color: "#8ea1b2",
+            fontSize: "0.75rem",
+            padding: "8px 0",
           }}
         >
-          No resource assignments.
+          All units on standby.
         </div>
       ) : (
         <div
           style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "9px",
-            maxHeight: "330px",
+            display: "grid",
+            gap: "7px",
+            maxHeight: "260px",
             overflowY: "auto",
           }}
         >
-          {assignments.map((assignment, index) => {
-            const resource = resourceMap.get(
-              assignment.resource_id,
-            );
-
-            const incident = incidentMap.get(
-              assignment.incident_id,
-            );
-
-            return (
-              <article
-                key={`${assignment.resource_id}-${assignment.incident_id}-${index}`}
+          {assignments.map((assignment, index) => (
+            <div
+              key={`${assignment.incident_id}-${assignment.resource_id}-${index}`}
+              style={{
+                padding: "8px",
+                border: "1px solid #223747",
+                borderRadius: "6px",
+                background: "#08121a",
+              }}
+            >
+              <div
                 style={{
-                  padding: "10px",
-                  border: "1px solid #1d3040",
-                  borderRadius: "7px",
-                  background: "#0d1822",
+                  color: "#f8fafc",
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                  lineHeight: 1.35,
                 }}
               >
-                <div
-                  style={{
-                    color: "#dbeafe",
-                    fontSize: "0.76rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  {resource?.name ?? assignment.resource_id}
-                </div>
+                {getResourceName(
+                  resources,
+                  assignment.resource_id,
+                )}
+              </div>
 
-                <div
-                  style={{
-                    marginTop: "5px",
-                    color: "#38bdf8",
-                    fontSize: "0.72rem",
-                    fontWeight: 600,
-                  }}
-                >
-                  → {incident?.title ?? assignment.incident_id}
-                </div>
+              <div
+                style={{
+                  marginTop: "3px",
+                  color: "#38bdf8",
+                  fontSize: "0.68rem",
+                  lineHeight: 1.35,
+                }}
+              >
+                →{" "}
+                {getIncidentTitle(
+                  incidents,
+                  assignment.incident_id,
+                )}
+              </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "8px",
-                    marginTop: "8px",
-                  }}
-                >
-                  <span
-                    style={{
-                      padding: "3px 6px",
-                      borderRadius: "4px",
-                      background: "#172635",
-                      color: "#aebdca",
-                      fontSize: "0.64rem",
-                    }}
-                  >
-                    ETA {assignment.eta_minutes} min
-                  </span>
-                </div>
+              <div
+                style={{
+                  marginTop: "4px",
+                  color: "#8ea1b2",
+                  fontSize: "0.64rem",
+                  lineHeight: 1.4,
+                }}
+              >
+                ETA: {assignment.eta_minutes.toFixed(1)} min
+              </div>
 
-                <div
-                  style={{
-                    marginTop: "7px",
-                    color: "#8ea1b2",
-                    fontSize: "0.68rem",
-                    lineHeight: 1.45,
-                  }}
-                >
-                  {assignment.reason}
-                </div>
-              </article>
-            );
-          })}
+              <div
+                style={{
+                  marginTop: "5px",
+                  color: "#cbd5e1",
+                  fontSize: "0.66rem",
+                  lineHeight: 1.4,
+                }}
+              >
+                {assignment.reason}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </section>

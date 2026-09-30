@@ -2,50 +2,79 @@
 
 type TopBarProps = {
   planVersion: number;
-  loading: boolean;
-  onTriggerEvent: () => void;
-  onReset: () => void;
+  step: number;
+  onTriggerEvent: () => Promise<void>;
+  onReset: () => Promise<void>;
+  busy: boolean;
 };
 
 export default function TopBar({
   planVersion,
-  loading,
+  step,
   onTriggerEvent,
   onReset,
+  busy,
 }: TopBarProps) {
   return (
     <header
       style={{
-        height: "72px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "0 20px",
-        borderBottom: "1px solid #1d3040",
-        background: "#0a141d",
+        gap: "16px",
+        padding: "12px 16px",
+        background: "#0b1620",
+        border: "1px solid #1d3040",
+        borderRadius: "10px",
+        minHeight: "58px",
       }}
     >
-      <div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "11px",
+          minWidth: 0,
+        }}
+      >
         <div
           style={{
-            fontSize: "1.35rem",
-            fontWeight: 800,
-            letterSpacing: "0.16em",
-            color: "#f8fafc",
+            width: "9px",
+            height: "9px",
+            borderRadius: "50%",
+            background: "#22c55e",
+            boxShadow: "0 0 9px rgba(34, 197, 94, 0.55)",
+            flexShrink: 0,
           }}
-        >
-          KAIROS
-        </div>
+        />
 
         <div
           style={{
-            marginTop: "2px",
-            fontSize: "0.7rem",
-            color: "#71879a",
-            letterSpacing: "0.08em",
+            minWidth: 0,
           }}
         >
-          AI EMERGENCY RESPONSE COMMAND
+          <div
+            style={{
+              color: "#f8fafc",
+              fontSize: "1rem",
+              fontWeight: 800,
+              letterSpacing: "0.06em",
+              lineHeight: 1.1,
+            }}
+          >
+            KAIROS
+          </div>
+
+          <div
+            style={{
+              color: "#8ea1b2",
+              fontSize: "0.62rem",
+              marginTop: "3px",
+              letterSpacing: "0.05em",
+            }}
+          >
+            EMERGENCY RESPONSE COMMAND
+          </div>
         </div>
       </div>
 
@@ -53,51 +82,73 @@ export default function TopBar({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "12px",
+          gap: "8px",
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
         }}
       >
         <div
           style={{
-            padding: "7px 11px",
-            border: "1px solid #1d3040",
-            borderRadius: "7px",
-            background: "#0d1822",
-            color: "#9fb2c1",
-            fontSize: "0.8rem",
+            padding: "6px 9px",
+            border: "1px solid #294052",
+            borderRadius: "6px",
+            color: "#cbd5e1",
+            fontSize: "0.68rem",
+            fontWeight: 700,
           }}
         >
-          PLAN v{planVersion}
+          PLAN V{planVersion}
+        </div>
+
+        <div
+          style={{
+            padding: "6px 9px",
+            border: "1px solid #294052",
+            borderRadius: "6px",
+            color: "#8ea1b2",
+            fontSize: "0.68rem",
+          }}
+        >
+          STEP {step}
         </div>
 
         <button
           type="button"
-          onClick={onTriggerEvent}
-          disabled={loading}
+          title="Plays the next step of the demo scenario"
+          disabled={busy}
+          onClick={() => {
+            void onTriggerEvent();
+          }}
           style={{
-            border: "1px solid #0284c7",
-            borderRadius: "7px",
-            padding: "8px 13px",
-            background: "#0369a1",
-            color: "#ffffff",
+            padding: "6px 9px",
+            border: "1px solid #294052",
+            borderRadius: "6px",
+            background: busy ? "#142532" : "#101e29",
+            color: "#94a3b8",
+            fontSize: "0.68rem",
             fontWeight: 700,
-            cursor: loading ? "not-allowed" : "pointer",
+            cursor: busy ? "not-allowed" : "pointer",
           }}
         >
-          {loading ? "Processing..." : "Trigger Next Event"}
+          Next Demo Event
         </button>
 
         <button
           type="button"
-          onClick={onReset}
-          disabled={loading}
+          title="Clears all incidents and starts with an empty city"
+          disabled={busy}
+          onClick={() => {
+            void onReset();
+          }}
           style={{
-            border: "1px solid #334155",
-            borderRadius: "7px",
-            padding: "8px 13px",
-            background: "#111c27",
-            color: "#d7e1e8",
-            fontWeight: 600,
-            cursor: loading ? "not-allowed" : "pointer",
+            padding: "6px 10px",
+            border: "1px solid #7f1d1d",
+            borderRadius: "6px",
+            background: busy ? "#24151a" : "#211216",
+            color: "#fca5a5",
+            fontSize: "0.68rem",
+            fontWeight: 700,
+            cursor: busy ? "not-allowed" : "pointer",
           }}
         >
           Reset

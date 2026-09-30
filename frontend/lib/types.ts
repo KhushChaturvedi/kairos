@@ -9,6 +9,7 @@ export type Incident = {
   people_affected: number;
   needs: string[];
   status: "active" | "resolved";
+  address?: string | null;
 };
 
 export type Resource = {

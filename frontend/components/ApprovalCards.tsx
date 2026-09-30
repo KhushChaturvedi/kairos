@@ -1,20 +1,59 @@
 "use client";
 
-import type { Approval } from "../lib/types";
+import type { Approval, Incident, Resource } from "../lib/types";
 
 type ApprovalCardsProps = {
   approvals: Approval[];
-  loading: boolean;
-  onDecision: (
-    approvalId: string,
-    decision: "approve" | "reject",
-  ) => void;
+  incidents: Incident[];
+  resources: Resource[];
+  onApprove: (approvalId: string) => Promise<void>;
+  onReject: (approvalId: string) => Promise<void>;
+  busy: boolean;
 };
+
+function getIncidentTitle(
+  incidents: Incident[],
+  incidentId: string,
+): string {
+  return (
+    incidents.find((incident) => incident.id === incidentId)?.title ??
+    incidentId
+  );
+}
+
+function findResourceNames(
+  resources: Resource[],
+  text: string,
+): string[] {
+  return resources
+    .filter(
+      (resource) =>
+        text.includes(resource.id) ||
+        text.includes(resource.name),
+    )
+    .map((resource) => resource.name);
+}
+
+function getReadableAction(
+  proposedAction: string,
+  resources: Resource[],
+): string {
+  let result = proposedAction;
+
+  for (const resource of resources) {
+    result = result.replaceAll(resource.id, resource.name);
+  }
+
+  return result;
+}
 
 export default function ApprovalCards({
   approvals,
-  loading,
-  onDecision,
+  incidents,
+  resources,
+  onApprove,
+  onReject,
+  busy,
 }: ApprovalCardsProps) {
   const pendingApprovals = approvals.filter(
     (approval) => approval.status === "pending",
@@ -22,11 +61,9 @@ export default function ApprovalCards({
 
   return (
     <section
+      className="control-panel"
       style={{
         padding: "14px",
-        background: "#0a141d",
-        border: "1px solid #1d3040",
-        borderRadius: "10px",
       }}
     >
       <div
@@ -34,169 +71,162 @@ export default function ApprovalCards({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: "14px",
+          marginBottom: "12px",
         }}
       >
-        <h2
-          style={{
-            margin: 0,
-            color: "#f8fafc",
-            fontSize: "0.95rem",
-            letterSpacing: "0.05em",
-          }}
-        >
-          APPROVAL REQUIRED
-        </h2>
+        <div className="panel-title">DECISIONS PENDING</div>
 
-        <span
-          style={{
-            padding: "3px 8px",
-            borderRadius: "999px",
-            background:
-              pendingApprovals.length > 0
-                ? "#7f1d1d"
-                : "#172635",
-            color:
-              pendingApprovals.length > 0
-                ? "#fca5a5"
-                : "#8ea1b2",
-            fontSize: "0.7rem",
-            fontWeight: 700,
-          }}
-        >
-          {pendingApprovals.length}
-        </span>
+        {pendingApprovals.length > 0 && (
+          <div
+            style={{
+              color: "#f59e0b",
+              fontSize: "0.65rem",
+              fontWeight: 700,
+            }}
+          >
+            ACTION REQUIRED
+          </div>
+        )}
       </div>
 
       {pendingApprovals.length === 0 ? (
         <div
           style={{
-            padding: "18px 10px",
-            textAlign: "center",
-            color: "#71879a",
-            fontSize: "0.8rem",
+            color: "#8ea1b2",
+            fontSize: "0.75rem",
+            padding: "10px 0",
           }}
         >
-          No decisions require operator approval.
+          No decisions pending
         </div>
       ) : (
         <div
           style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
+            display: "grid",
+            gap: "9px",
+            maxHeight: "300px",
+            overflowY: "auto",
           }}
         >
-          {pendingApprovals.map((approval) => (
-            <article
-              key={approval.id}
-              style={{
-                padding: "12px",
-                border: "1px solid #7f1d1d",
-                borderRadius: "8px",
-                background: "#1a1115",
-              }}
-            >
-              <div
-                style={{
-                  color: "#fca5a5",
-                  fontSize: "0.68rem",
-                  fontWeight: 800,
-                  letterSpacing: "0.05em",
-                }}
-              >
-                RISKY DECISION
-              </div>
+          {pendingApprovals.map((approval) => {
+            const referencedResources = findResourceNames(
+              resources,
+              `${approval.reason} ${approval.proposed_action}`,
+            );
 
-              <h3
+            return (
+              <article
+                key={approval.id}
                 style={{
-                  margin: "7px 0 8px",
-                  color: "#f1f5f9",
-                  fontSize: "0.86rem",
-                  lineHeight: 1.35,
+                  padding: "10px",
+                  border: "1px solid #7c4a03",
+                  borderRadius: "7px",
+                  background: "#171207",
                 }}
               >
-                {approval.proposed_action}
-              </h3>
-
-              <div
-                style={{
-                  marginBottom: "10px",
-                  color: "#aebdca",
-                  fontSize: "0.75rem",
-                  lineHeight: 1.5,
-                }}
-              >
-                <strong style={{ color: "#dbeafe" }}>
-                  Why:
-                </strong>{" "}
-                {approval.reason}
-              </div>
-
-              <div
-                style={{
-                  marginBottom: "12px",
-                  color: "#71879a",
-                  fontSize: "0.68rem",
-                }}
-              >
-                Incident: {approval.incident_id}
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                }}
-              >
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() =>
-                    onDecision(approval.id, "approve")
-                  }
+                <div
                   style={{
-                    flex: 1,
-                    padding: "8px",
-                    border: "1px solid #15803d",
-                    borderRadius: "6px",
-                    background: "#166534",
-                    color: "#dcfce7",
-                    fontSize: "0.75rem",
+                    color: "#f8fafc",
+                    fontSize: "0.78rem",
                     fontWeight: 700,
-                    cursor: loading
-                      ? "not-allowed"
-                      : "pointer",
+                    lineHeight: 1.35,
                   }}
                 >
-                  Approve
-                </button>
+                  {getIncidentTitle(
+                    incidents,
+                    approval.incident_id,
+                  )}
+                </div>
 
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() =>
-                    onDecision(approval.id, "reject")
-                  }
+                <div
                   style={{
-                    flex: 1,
-                    padding: "8px",
-                    border: "1px solid #b91c1c",
-                    borderRadius: "6px",
-                    background: "#991b1b",
-                    color: "#fee2e2",
-                    fontSize: "0.75rem",
+                    marginTop: "7px",
+                    color: "#f59e0b",
+                    fontSize: "0.72rem",
                     fontWeight: 700,
-                    cursor: loading
-                      ? "not-allowed"
-                      : "pointer",
+                    lineHeight: 1.45,
                   }}
                 >
-                  Reject
-                </button>
-              </div>
-            </article>
-          ))}
+                  {approval.reason}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "7px",
+                    color: "#cbd5e1",
+                    fontSize: "0.7rem",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {getReadableAction(
+                    approval.proposed_action,
+                    resources,
+                  )}
+                </div>
+
+                {referencedResources.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "7px",
+                      color: "#8ea1b2",
+                      fontSize: "0.65rem",
+                    }}
+                  >
+                    Resources: {referencedResources.join(", ")}
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "7px",
+                    marginTop: "10px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      void onApprove(approval.id);
+                    }}
+                    style={{
+                      padding: "7px",
+                      border: "1px solid #166534",
+                      borderRadius: "5px",
+                      background: busy ? "#1b3445" : "#12301f",
+                      color: "#86efac",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      cursor: busy ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Approve
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      void onReject(approval.id);
+                    }}
+                    style={{
+                      padding: "7px",
+                      border: "1px solid #991b1b",
+                      borderRadius: "5px",
+                      background: busy ? "#1b3445" : "#301315",
+                      color: "#fca5a5",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      cursor: busy ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </section>

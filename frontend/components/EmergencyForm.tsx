@@ -1,81 +1,102 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import type { Incident } from "../lib/types";
+import { FormEvent, useEffect, useState } from "react";
+
+type PickedLocation = {
+  lat: number;
+  lng: number;
+};
+
+type EmergencyFormInput = {
+  description: string;
+  title?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+};
 
 type EmergencyFormProps = {
-  onSubmit: (incident: Incident) => void;
+  onSubmit: (input: EmergencyFormInput) => Promise<void>;
+  submitting: boolean;
+  pickedLocation: PickedLocation | null;
+  onClearLocation: () => void;
 };
 
 export default function EmergencyForm({
   onSubmit,
+  submitting,
+  pickedLocation,
+  onClearLocation,
 }: EmergencyFormProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [type, setType] =
-    useState<Incident["type"]>("accident");
-  const [severity, setSeverity] =
-    useState<Incident["severity"]>(3);
-
   const [address, setAddress] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const [peopleAffected, setPeopleAffected] = useState("");
-  const [needs, setNeeds] = useState("");
+  const hasDescription = description.trim().length > 0;
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (!submitting) {
+      setError(null);
+    }
+  }, [submitting]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const incident: Incident = {
-      id: `manual-${Date.now()}`,
-      title,
-      description: `${description} Location: ${address}`,
-      type,
-      severity,
+    if (!hasDescription || submitting) {
+      return;
+    }
 
-      // Temporary Ahmedabad coordinates.
-      // Step 36 will replace these with coordinates
-      // automatically generated from the address.
-      lat: 23.0225,
-      lng: 72.5714,
+    try {
+      setError(null);
 
-      people_affected: Number(peopleAffected),
+      await onSubmit({
+        description: description.trim(),
+        ...(title.trim() ? { title: title.trim() } : {}),
+        ...(address.trim() ? { address: address.trim() } : {}),
+        ...(pickedLocation
+          ? {
+              lat: pickedLocation.lat,
+              lng: pickedLocation.lng,
+            }
+          : {}),
+      });
 
-      needs: needs
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
+      setTitle("");
+      setDescription("");
+      setAddress("");
+    } catch (err) {
+      console.error(err);
 
-      status: "active",
-    };
-
-    onSubmit(incident);
-
-    setTitle("");
-    setDescription("");
-    setType("accident");
-    setSeverity(3);
-    setAddress("");
-    setPeopleAffected("");
-    setNeeds("");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to report the emergency.",
+      );
+    }
   };
 
   return (
-    <div className="control-panel" style={{ padding: "16px" }}>
+    <section
+      className="control-panel"
+      style={{
+        padding: "14px",
+      }}
+    >
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "14px",
+          justifyContent: "space-between",
+          marginBottom: "12px",
         }}
       >
-        <div className="panel-title">
-          REPORT NEW EMERGENCY
-        </div>
+        <div className="panel-title">REPORT EMERGENCY</div>
 
         <div
           style={{
-            fontSize: "0.68rem",
+            fontSize: "0.65rem",
             color: "#38bdf8",
             border: "1px solid #1d4ed8",
             borderRadius: "999px",
@@ -90,17 +111,18 @@ export default function EmergencyForm({
         onSubmit={handleSubmit}
         style={{
           display: "grid",
-          gap: "10px",
+          gap: "9px",
         }}
       >
         <input
+          type="text"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="Emergency title"
-          required
+          placeholder="Title (optional)"
+          disabled={submitting}
           style={{
             width: "100%",
-            padding: "10px",
+            padding: "9px",
             background: "#08121a",
             border: "1px solid #294052",
             borderRadius: "6px",
@@ -112,12 +134,13 @@ export default function EmergencyForm({
         <textarea
           value={description}
           onChange={(event) => setDescription(event.target.value)}
-          placeholder="Describe the emergency"
+          placeholder="Describe the emergency..."
+          rows={4}
+          disabled={submitting}
           required
-          rows={3}
           style={{
             width: "100%",
-            padding: "10px",
+            padding: "9px",
             background: "#08121a",
             border: "1px solid #294052",
             borderRadius: "6px",
@@ -127,66 +150,15 @@ export default function EmergencyForm({
           }}
         />
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "10px",
-          }}
-        >
-          <select
-            value={type}
-            onChange={(event) =>
-              setType(event.target.value as Incident["type"])
-            }
-            style={{
-              width: "100%",
-              padding: "10px",
-              background: "#08121a",
-              border: "1px solid #294052",
-              borderRadius: "6px",
-              color: "#e6edf3",
-            }}
-          >
-            <option value="accident">Accident</option>
-            <option value="fire">Fire</option>
-            <option value="medical">Medical</option>
-            <option value="evacuation">Evacuation</option>
-            <option value="gas_leak">Gas Leak</option>
-          </select>
-
-          <select
-            value={severity}
-            onChange={(event) =>
-              setSeverity(
-                Number(event.target.value) as Incident["severity"],
-              )
-            }
-            style={{
-              width: "100%",
-              padding: "10px",
-              background: "#08121a",
-              border: "1px solid #294052",
-              borderRadius: "6px",
-              color: "#e6edf3",
-            }}
-          >
-            <option value={1}>Severity 1 — Low</option>
-            <option value={2}>Severity 2 — Low</option>
-            <option value={3}>Severity 3 — Medium</option>
-            <option value={4}>Severity 4 — High</option>
-            <option value={5}>Severity 5 — Critical</option>
-          </select>
-        </div>
-
         <input
+          type="text"
           value={address}
           onChange={(event) => setAddress(event.target.value)}
-          placeholder="Emergency address, e.g. SG Highway, Ahmedabad"
-          required
+          placeholder="Area or landmark, e.g. Paldi, near Kankaria Lake"
+          disabled={submitting}
           style={{
             width: "100%",
-            padding: "10px",
+            padding: "9px",
             background: "#08121a",
             border: "1px solid #294052",
             borderRadius: "6px",
@@ -195,57 +167,80 @@ export default function EmergencyForm({
           }}
         />
 
-        <input
-          type="number"
-          min="1"
-          value={peopleAffected}
-          onChange={(event) =>
-            setPeopleAffected(event.target.value)
-          }
-          placeholder="Number of people affected"
-          required
+        <div
           style={{
-            width: "100%",
-            padding: "10px",
-            background: "#08121a",
-            border: "1px solid #294052",
-            borderRadius: "6px",
-            color: "#e6edf3",
-            outline: "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "8px",
+            minHeight: "28px",
+            fontSize: "0.72rem",
           }}
-        />
+        >
+          {pickedLocation ? (
+            <>
+              <div style={{ color: "#e6edf3" }}>
+                Map pin: {pickedLocation.lat.toFixed(4)},{" "}
+                {pickedLocation.lng.toFixed(4)}
+              </div>
 
-        <input
-          value={needs}
-          onChange={(event) => setNeeds(event.target.value)}
-          placeholder="Needs, e.g. ambulance, rescue_team"
-          style={{
-            width: "100%",
-            padding: "10px",
-            background: "#08121a",
-            border: "1px solid #294052",
-            borderRadius: "6px",
-            color: "#e6edf3",
-            outline: "none",
-          }}
-        />
+              <button
+                type="button"
+                onClick={onClearLocation}
+                disabled={submitting}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "#38bdf8",
+                  padding: 0,
+                  cursor: submitting ? "not-allowed" : "pointer",
+                  textDecoration: "underline",
+                  fontSize: "0.72rem",
+                }}
+              >
+                clear
+              </button>
+            </>
+          ) : (
+            <div style={{ color: "#8ea1b2" }}>
+              Optional: click the map to pin the exact location
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <div
+            style={{
+              padding: "8px",
+              borderRadius: "6px",
+              border: "1px solid #991b1b",
+              background: "#1f1115",
+              color: "#fca5a5",
+              fontSize: "0.72rem",
+            }}
+          >
+            {error}
+          </div>
+        )}
 
         <button
           type="submit"
+          disabled={!hasDescription || submitting}
           style={{
-            marginTop: "4px",
-            padding: "11px",
+            padding: "10px",
             border: "1px solid #0284c7",
             borderRadius: "6px",
-            background: "#0284c7",
-            color: "#ffffff",
+            background:
+              hasDescription && !submitting ? "#0284c7" : "#1b3445",
+            color: "#fff",
             fontWeight: 700,
-            cursor: "pointer",
+            cursor:
+              hasDescription && !submitting ? "pointer" : "not-allowed",
           }}
         >
-          REPORT EMERGENCY
+          {submitting ? "Kairos is assessing..." : "REPORT EMERGENCY"}
         </button>
       </form>
-    </div>
+    </section>
   );
 }

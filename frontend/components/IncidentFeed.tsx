@@ -4,103 +4,106 @@ import type { Incident } from "../lib/types";
 
 type IncidentFeedProps = {
   incidents: Incident[];
+  onResolveIncident: (incidentId: string) => Promise<void>;
+  busy: boolean;
 };
 
-const severityColors: Record<number, string> = {
-  1: "#22c55e",
-  2: "#22c55e",
-  3: "#facc15",
-  4: "#f97316",
-  5: "#ef4444",
-};
+function getSeverityColor(severity: Incident["severity"]): string {
+  if (severity >= 5) return "#ef4444";
+  if (severity >= 4) return "#f97316";
+  if (severity >= 3) return "#f59e0b";
+  return "#22c55e";
+}
 
-const severityLabels: Record<number, string> = {
-  1: "LOW",
-  2: "LOW",
-  3: "MEDIUM",
-  4: "HIGH",
-  5: "CRITICAL",
-};
+function getPeopleText(peopleAffected: number): string {
+  if (peopleAffected === 0) {
+    return "No people affected reported";
+  }
+
+  return `${peopleAffected} ${
+    peopleAffected === 1 ? "person" : "people"
+  } affected`;
+}
 
 export default function IncidentFeed({
   incidents,
+  onResolveIncident,
+  busy,
 }: IncidentFeedProps) {
+  const activeIncidents = incidents.filter(
+    (incident) => incident.status === "active",
+  );
+
+  const resolvedIncidents = incidents.filter(
+    (incident) => incident.status === "resolved",
+  );
+
+  const orderedIncidents = [...activeIncidents, ...resolvedIncidents];
+
   return (
-    <section
-      style={{
-        height: "100%",
-        minHeight: "500px",
-        overflowY: "auto",
-        padding: "14px",
-        background: "#0a141d",
-        border: "1px solid #1d3040",
-        borderRadius: "10px",
-      }}
-    >
+    <section className="control-panel" style={{ padding: "14px" }}>
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: "14px",
+          marginBottom: "12px",
         }}
       >
-        <h2
-          style={{
-            margin: 0,
-            color: "#f8fafc",
-            fontSize: "0.95rem",
-            letterSpacing: "0.05em",
-          }}
-        >
-          INCIDENT FEED
-        </h2>
+        <div className="panel-title">INCIDENT FEED</div>
 
-        <span
-          style={{
-            padding: "3px 8px",
-            borderRadius: "999px",
-            background: "#172635",
-            color: "#8ea1b2",
-            fontSize: "0.7rem",
-          }}
-        >
-          {incidents.length} TOTAL
-        </span>
-      </div>
-
-      {incidents.length === 0 ? (
         <div
           style={{
-            padding: "20px 10px",
-            textAlign: "center",
-            color: "#71879a",
-            fontSize: "0.85rem",
+            fontSize: "0.7rem",
+            color: "#8ea1b2",
           }}
         >
-          No incidents reported.
+          {activeIncidents.length} active
+        </div>
+      </div>
+
+      {orderedIncidents.length === 0 ? (
+        <div
+          style={{
+            padding: "18px 10px",
+            color: "#8ea1b2",
+            fontSize: "0.78rem",
+            lineHeight: 1.5,
+            textAlign: "center",
+            border: "1px dashed #294052",
+            borderRadius: "7px",
+          }}
+        >
+          No emergencies reported. Use the form above to report one.
         </div>
       ) : (
         <div
           style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
+            display: "grid",
+            gap: "8px",
+            maxHeight: "360px",
+            overflowY: "auto",
+            paddingRight: "2px",
           }}
         >
-          {incidents.map((incident) => {
-            const severityColor =
-              severityColors[incident.severity];
+          {orderedIncidents.map((incident) => {
+            const isResolved = incident.status === "resolved";
+            const severityColor = getSeverityColor(incident.severity);
 
             return (
               <article
                 key={incident.id}
                 style={{
-                  padding: "12px",
-                  border: "1px solid #1d3040",
-                  borderLeft: `4px solid ${severityColor}`,
-                  borderRadius: "8px",
-                  background: "#0d1822",
+                  border: `1px solid ${
+                    isResolved ? "#253442" : "#294052"
+                  }`,
+                  borderLeft: `3px solid ${
+                    isResolved ? "#475569" : severityColor
+                  }`,
+                  borderRadius: "7px",
+                  padding: "10px",
+                  background: isResolved ? "#0a141d" : "#0b1620",
+                  opacity: isResolved ? 0.55 : 1,
                 }}
               >
                 <div
@@ -111,30 +114,50 @@ export default function IncidentFeed({
                     gap: "8px",
                   }}
                 >
-                  <h3
+                  <div
                     style={{
-                      margin: 0,
-                      color: "#f1f5f9",
-                      fontSize: "0.88rem",
-                      lineHeight: 1.3,
+                      minWidth: 0,
+                      flex: 1,
                     }}
                   >
-                    {incident.title}
-                  </h3>
+                    <div
+                      style={{
+                        color: isResolved ? "#94a3b8" : "#f8fafc",
+                        fontSize: "0.82rem",
+                        fontWeight: 700,
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {incident.title}
+                    </div>
 
-                  <span
+                    <div
+                      style={{
+                        marginTop: "4px",
+                        color: "#8ea1b2",
+                        fontSize: "0.7rem",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {incident.description}
+                    </div>
+                  </div>
+
+                  <div
                     style={{
                       flexShrink: 0,
+                      color: isResolved ? "#64748b" : severityColor,
+                      fontSize: "0.65rem",
+                      fontWeight: 700,
+                      border: `1px solid ${
+                        isResolved ? "#334155" : severityColor
+                      }`,
+                      borderRadius: "999px",
                       padding: "3px 6px",
-                      borderRadius: "5px",
-                      background: `${severityColor}22`,
-                      color: severityColor,
-                      fontSize: "0.62rem",
-                      fontWeight: 800,
                     }}
                   >
-                    {severityLabels[incident.severity]}
-                  </span>
+                    S{incident.severity}
+                  </div>
                 </div>
 
                 <div
@@ -142,67 +165,63 @@ export default function IncidentFeed({
                     display: "flex",
                     flexWrap: "wrap",
                     gap: "6px",
-                    marginTop: "9px",
+                    marginTop: "8px",
+                    color: "#8ea1b2",
+                    fontSize: "0.66rem",
                   }}
                 >
-                  <span
+                  <span>
+                    {incident.type.replace("_", " ").toUpperCase()}
+                  </span>
+
+                  <span>•</span>
+
+                  <span>
+                    {getPeopleText(incident.people_affected)}
+                  </span>
+
+                  {incident.address && (
+                    <>
+                      <span>•</span>
+
+                      <span>{incident.address}</span>
+                    </>
+                  )}
+                </div>
+
+                {!isResolved ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      void onResolveIncident(incident.id);
+                    }}
                     style={{
-                      padding: "3px 7px",
-                      borderRadius: "4px",
-                      background: "#172635",
-                      color: "#aebdca",
-                      fontSize: "0.65rem",
-                      textTransform: "uppercase",
+                      marginTop: "9px",
+                      padding: "5px 9px",
+                      border: "1px solid #166534",
+                      borderRadius: "5px",
+                      background: busy ? "#1b3445" : "#10291d",
+                      color: "#86efac",
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      cursor: busy ? "not-allowed" : "pointer",
                     }}
                   >
-                    {incident.type.replace("_", " ")}
-                  </span>
-
-                  <span
+                    Resolve
+                  </button>
+                ) : (
+                  <div
                     style={{
-                      padding: "3px 7px",
-                      borderRadius: "4px",
-                      background:
-                        incident.status === "active"
-                          ? "#14532d"
-                          : "#334155",
-                      color:
-                        incident.status === "active"
-                          ? "#86efac"
-                          : "#cbd5e1",
-                      fontSize: "0.65rem",
-                      textTransform: "uppercase",
+                      marginTop: "8px",
+                      color: "#64748b",
+                      fontSize: "0.66rem",
+                      fontWeight: 700,
                     }}
                   >
-                    {incident.status}
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    marginTop: "10px",
-                    color: "#8ea1b2",
-                    fontSize: "0.72rem",
-                  }}
-                >
-                  People affected:{" "}
-                  <strong style={{ color: "#dbeafe" }}>
-                    {incident.people_affected}
-                  </strong>
-                </div>
-
-                <div
-                  style={{
-                    marginTop: "5px",
-                    color: "#8ea1b2",
-                    fontSize: "0.72rem",
-                  }}
-                >
-                  Needs:{" "}
-                  <span style={{ color: "#cbd5e1" }}>
-                    {incident.needs.join(", ")}
-                  </span>
-                </div>
+                    RESOLVED
+                  </div>
+                )}
               </article>
             );
           })}
