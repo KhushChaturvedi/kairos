@@ -86,3 +86,10 @@ class State(BaseModel):  # EVERYTHING the frontend needs, in one object
 class ApproveRequest(BaseModel):  # the body the frontend sends to POST /approve
     approval_id: str
     decision: Literal["approve", "reject"]
+
+
+class ReportRequest(BaseModel):  # the body the frontend sends to POST /report
+    description: str  # the emergency in plain text
+    lat: float  # where the operator clicked on the map
+    lng: float
+    title: Optional[str] = None  # optional; generated from the text if missing

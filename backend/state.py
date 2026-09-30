@@ -30,12 +30,11 @@ class Engine:
         self.facilities: List[Facility] = initial_facilities()
         self.incidents: List[Incident] = []
         self.approvals: List[Approval] = []
-        self.approval_data: Dict[str, Optional[dict]] = (
-            {}
-        )  # approval id → swap proposal (or None)
-        self.used_keys: set = set()  # questions already asked
+        self.approval_data: Dict[str, Optional[dict]] = {}
+        self.used_keys: set = set()
         self.event_log: List[str] = []
         self.step: int = 0
+        self.report_count: int = 0
         self.plan = Plan(version=0, assignments=[], changes=[], summary="")
 
         confidences = {}
@@ -46,7 +45,6 @@ class Engine:
 
         self.log("Kairos online. 3 active incidents loaded.")
         self._replan(self.plan.assignments, confidences)
-        # The very first plan has nothing to compare with, so show no changes.
         self.plan = self.plan.model_copy(update={"changes": []})
         return self.get_state()
 
@@ -57,19 +55,19 @@ class Engine:
             self.log("No more scripted events. Press Reset to replay the demo.")
             return self.get_state()
 
-        for rid in step["unavailable"]:  # resources that broke down
+        for rid in step["unavailable"]:
             for r in self.resources:
                 if r.id == rid:
                     r.status = "unavailable"
                     r.assigned_to = None
 
-        for iid in step["resolve"]:  # incidents that are finished
+        for iid in step["resolve"]:
             for i in self.incidents:
                 if i.id == iid:
                     i.status = "resolved"
 
         confidences = {}
-        for report in step["new_reports"]:  # new emergencies
+        for report in step["new_reports"]:
             incident, conf = assess(report)
             self.incidents.append(incident)
             confidences[incident.id] = conf
@@ -79,6 +77,30 @@ class Engine:
 
         self.step += 1
         self._replan(self.plan.assignments, confidences)
+        return self.get_state()
+
+    def add_report(
+        self, description: str, lat: float, lng: float, title: Optional[str] = None
+    ) -> State:
+        """A live emergency typed by the operator."""
+        self.report_count += 1
+        incident_id = f"INC-{100 + self.report_count}"  # INC-101, INC-102, ...
+
+        if not title:
+            words = description.strip().split()
+            title = " ".join(words[:6]).rstrip(",.;:")
+
+        report = {
+            "id": incident_id,
+            "title": title,
+            "description": description.strip(),
+            "lat": lat,
+            "lng": lng,
+        }
+        incident, conf = assess(report)
+        self.incidents.append(incident)
+        self.log(f"New operator report: {title}")
+        self._replan(self.plan.assignments, {incident.id: conf})
         return self.get_state()
 
     def decide(self, approval_id: str, decision: str) -> State:
@@ -98,7 +120,7 @@ class Engine:
             return self.get_state()
 
         self.log(f"Operator approved: {approval.proposed_action}")
-        if proposal is None:  # a "verify report" approval: nothing to move
+        if proposal is None:
             self._refresh_summary()
             return self.get_state()
 
