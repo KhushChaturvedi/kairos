@@ -8,7 +8,10 @@ Frontend: Next.js at http://localhost:3000
 GET /state → returns State
 POST /event → triggers next scripted event, returns State
 POST /approve → body { "approval_id": string, "decision": "approve" | "reject" }, returns State
+POST /report → body { "description": string, "address"?: string, "lat"?: number, "lng"?: number, "title"?: string }, returns State
 POST /reset → returns State
+
+Every endpoint returns the FULL State. After any action, the frontend replaces its whole state with the response.
 
 ## Types
 
@@ -24,6 +27,7 @@ type Incident = {
   people_affected: number;
   needs: string[];
   status: "active" | "resolved";
+  address?: string | null;
 };
 
 type Resource = {
