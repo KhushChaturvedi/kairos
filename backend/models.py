@@ -19,6 +19,7 @@ class Incident(BaseModel):  # one emergency (accident, fire, etc.)
     people_affected: int  # number of people involved
     needs: List[str]  # resources needed, e.g. ["ambulance", "rescue_team"]
     status: Literal["active", "resolved"]  # still going on, or finished
+    address: Optional[str] = None  # place name, e.g. "Paldi" (optional)
 
 
 class Resource(BaseModel):  # one unit that can respond (ambulance, etc.)
@@ -89,7 +90,8 @@ class ApproveRequest(BaseModel):  # the body the frontend sends to POST /approve
 
 
 class ReportRequest(BaseModel):  # the body the frontend sends to POST /report
-    description: str  # the emergency in plain text
-    lat: float  # where the operator clicked on the map
-    lng: float
+    description: str  # the emergency in plain text (required)
+    address: Optional[str] = None  # area or address typed by the operator (optional)
+    lat: Optional[float] = None  # set only if the operator clicked the map
+    lng: Optional[float] = None
     title: Optional[str] = None  # optional; generated from the text if missing

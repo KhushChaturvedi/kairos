@@ -10,6 +10,7 @@ from agents.assessment import assess
 from agents.allocation import allocate
 from agents.command import build_plan, build_approvals, make_summary
 from agents.route import eta_minutes
+from agents.geocode import resolve_location
 
 LABELS = {
     "ambulance": "ambulance",
@@ -80,15 +81,22 @@ class Engine:
         return self.get_state()
 
     def add_report(
-        self, description: str, lat: float, lng: float, title: Optional[str] = None
+        self,
+        description: str,
+        address: Optional[str] = None,
+        lat: Optional[float] = None,
+        lng: Optional[float] = None,
+        title: Optional[str] = None,
     ) -> State:
-        """A live emergency typed by the operator."""
+        """A live emergency typed by the operator. Location is optional."""
         self.report_count += 1
         incident_id = f"INC-{100 + self.report_count}"  # INC-101, INC-102, ...
 
         if not title:
             words = description.strip().split()
             title = " ".join(words[:6]).rstrip(",.;:")
+
+        lat, lng, place, source = resolve_location(address, description, lat, lng)
 
         report = {
             "id": incident_id,
@@ -98,8 +106,17 @@ class Engine:
             "lng": lng,
         }
         incident, conf = assess(report)
+        incident = incident.model_copy(update={"address": place})
         self.incidents.append(incident)
-        self.log(f"New operator report: {title}")
+
+        if source == "unknown":
+            conf = min(conf, 0.5)  # triggers a "verify" approval for the operator
+            self.log(
+                f"New operator report: {title}. Location not found, placed at city centre. Please verify."
+            )
+        else:
+            self.log(f"New operator report: {title} ({place})")
+
         self._replan(self.plan.assignments, {incident.id: conf})
         return self.get_state()
 

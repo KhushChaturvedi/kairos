@@ -10,9 +10,11 @@ from agents.llm import status as llm_status
 app = FastAPI(
     title="Kairos API",
     description="Multi-agent emergency response command system (Team Golden Dawn)",
-    version="1.1",
+    version="1.2",
 )
 
+# CORS: allows the frontend (a different address, e.g. localhost:3000 or
+# Manushi's laptop) to call this backend. Without it, the browser blocks requests.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -43,7 +45,9 @@ def approve(body: ApproveRequest):
 
 @app.post("/report", response_model=State)
 def report(body: ReportRequest):
-    return engine.add_report(body.description, body.lat, body.lng, body.title)
+    return engine.add_report(
+        body.description, body.address, body.lat, body.lng, body.title
+    )
 
 
 @app.post("/reset", response_model=State)
