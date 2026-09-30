@@ -1,8 +1,10 @@
 # Kairos
 
-Live app: ADD-VERCEL-LINK
+Live app: https://kairos-gd.vercel.app
 Demo video: ADD-VIDEO-LINK
-Backend API: ADD-RENDER-LINK
+Backend API: https://kairos-backend-0436.onrender.com
+
+Note: the backend runs on a free server that sleeps when unused, so the first request can take up to a minute. After that it's quick.
 
 Kairos is an emergency response control room for Ahmedabad. You type what happened in normal words, like "bus overturned near Paldi, 15 people injured", and Kairos works out how serious it is, sends the nearest ambulances, fire trucks and rescue teams, and keeps updating the plan when things change.
 
