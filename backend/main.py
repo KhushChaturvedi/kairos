@@ -3,7 +3,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from models import State, ApproveRequest, ReportRequest
+from models import State, ApproveRequest, ReportRequest, ResolveRequest, ResourceStatusRequest
 from state import engine
 from agents.llm import status as llm_status
 
@@ -35,6 +35,7 @@ def get_state():
 
 @app.post("/event", response_model=State)
 def trigger_event():
+    """Plays the next step of the optional demo scenario."""
     return engine.trigger_event()
 
 
@@ -48,6 +49,16 @@ def report(body: ReportRequest):
     return engine.add_report(
         body.description, body.address, body.lat, body.lng, body.title
     )
+
+
+@app.post("/resolve", response_model=State)
+def resolve(body: ResolveRequest):
+    return engine.resolve_incident(body.incident_id)
+
+
+@app.post("/resource-status", response_model=State)
+def resource_status(body: ResourceStatusRequest):
+    return engine.set_resource_status(body.resource_id, body.status)
 
 
 @app.post("/reset", response_model=State)

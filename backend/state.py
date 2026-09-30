@@ -1,10 +1,11 @@
 # state.py
 # STATE MANAGER: holds the live city in memory and runs the agents in order.
 # Flow for every change:  Assessment → Allocation (uses Route) → Command → updated State
+# The app starts EMPTY: incidents come from operator reports (or the optional demo scenario).
 
 from typing import Dict, List, Optional
 from models import State, Plan, Incident, Resource, Facility, Assignment, Approval
-from data.seed import initial_reports, initial_resources, initial_facilities
+from data.seed import initial_resources, initial_facilities
 from data.scenario import get_step
 from agents.assessment import assess
 from agents.allocation import allocate
@@ -26,7 +27,7 @@ class Engine:
     # ---------- public actions (called by the API) ----------
 
     def reset(self) -> State:
-        """Start the simulation from scratch."""
+        """Start with an empty city: all units on standby, no incidents."""
         self.resources: List[Resource] = initial_resources()
         self.facilities: List[Facility] = initial_facilities()
         self.incidents: List[Incident] = []
@@ -36,24 +37,16 @@ class Engine:
         self.event_log: List[str] = []
         self.step: int = 0
         self.report_count: int = 0
-        self.plan = Plan(version=0, assignments=[], changes=[], summary="")
-
-        confidences = {}
-        for report in initial_reports():
-            incident, conf = assess(report)
-            self.incidents.append(incident)
-            confidences[incident.id] = conf
-
-        self.log("Kairos online. 3 active incidents loaded.")
-        self._replan(self.plan.assignments, confidences)
-        self.plan = self.plan.model_copy(update={"changes": []})
+        self.plan = Plan(version=1, assignments=[], changes=[], summary="")
+        self.log(f"Kairos online. All {len(self.resources)} units on standby.")
+        self._refresh_summary()
         return self.get_state()
 
     def trigger_event(self) -> State:
-        """Play the next scripted event, then rebuild the plan."""
+        """Play the next step of the optional demo scenario."""
         step = get_step(self.step)
         if step is None:
-            self.log("No more scripted events. Press Reset to replay the demo.")
+            self.log("Demo scenario finished. Press Reset to start again.")
             return self.get_state()
 
         for rid in step["unavailable"]:
@@ -68,7 +61,10 @@ class Engine:
                     i.status = "resolved"
 
         confidences = {}
+        existing = {i.id for i in self.incidents}
         for report in step["new_reports"]:
+            if report["id"] in existing:
+                continue
             incident, conf = assess(report)
             self.incidents.append(incident)
             confidences[incident.id] = conf
@@ -118,6 +114,33 @@ class Engine:
             self.log(f"New operator report: {title} ({place})")
 
         self._replan(self.plan.assignments, {incident.id: conf})
+        return self.get_state()
+
+    def resolve_incident(self, incident_id: str) -> State:
+        """Operator marks an incident as finished; its units become free."""
+        incident = next((i for i in self.incidents if i.id == incident_id), None)
+        if incident is None or incident.status == "resolved":
+            return self.get_state()
+        incident.status = "resolved"
+        self.log(f"Operator closed incident: {incident.title}. Its units are now free.")
+        self._replan(self.plan.assignments, {})
+        return self.get_state()
+
+    def set_resource_status(self, resource_id: str, status: str) -> State:
+        """Operator marks a unit out of service, or back in service."""
+        resource = next((r for r in self.resources if r.id == resource_id), None)
+        if resource is None:
+            return self.get_state()
+        if status == "unavailable" and resource.status != "unavailable":
+            resource.status = "unavailable"
+            resource.assigned_to = None
+            self.log(f"{resource.name} marked out of service.")
+        elif status == "available" and resource.status == "unavailable":
+            resource.status = "available"
+            self.log(f"{resource.name} is back in service.")
+        else:
+            return self.get_state()
+        self._replan(self.plan.assignments, {})
         return self.get_state()
 
     def decide(self, approval_id: str, decision: str) -> State:
@@ -186,11 +209,10 @@ class Engine:
         self._sync_resources()
         self._refresh_summary()
 
-        if self.plan.version > 1:
-            self.log(
-                f"Plan updated to version {self.plan.version}: "
-                f"{len(self.plan.changes)} change(s), {pending} pending approval(s)."
-            )
+        self.log(
+            f"Plan updated to version {self.plan.version}: "
+            f"{len(self.plan.changes)} change(s), {pending} pending approval(s)."
+        )
 
     def _apply_swap(self, p: dict) -> List[Assignment]:
         """Applies an approved swap to the current assignments."""

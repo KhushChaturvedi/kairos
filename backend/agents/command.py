@@ -167,18 +167,21 @@ def make_summary(
     deployed = len({a.resource_id for a in assignments})
     free = len([r for r in resources if r.status == "available"])
     down = len([r for r in resources if r.status == "unavailable"])
-    most = max(active, key=lambda i: (i.severity, i.people_affected), default=None)
 
-    text = (
-        f"{len(active)} active incidents, {deployed} units deployed, {free} available"
-    )
+    if not active:
+        text = f"All clear. {free} units on standby"
+        if down:
+            text += f", {down} out of service"
+        return text + "."
+
+    most = max(active, key=lambda i: (i.severity, i.people_affected), default=None)
+    text = f"{len(active)} active incidents, {deployed} units deployed, {free} available"
     if down:
         text += f", {down} out of service"
     text += "."
     if most:
         text += f" Highest priority: {most.title} (severity {most.severity})."
 
-    # Incidents that still don't have everything they need
     res_type = {r.id: r.type for r in resources}
     short = []
     for i in active:

@@ -87,7 +87,7 @@ def assess_with_rules(report: dict) -> Tuple[Incident, float]:
 
     confidence = 0.85
     has_number = bool(re.search(r"\d", text))
-    if any(w in text for w in VAGUE_WORDS) or not has_number or len(text) < 60:
+    if any(w in text for w in VAGUE_WORDS) or not has_number or len(text) < 25:
         confidence = 0.5
         severity += 1
 

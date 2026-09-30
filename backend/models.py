@@ -95,3 +95,12 @@ class ReportRequest(BaseModel):  # the body the frontend sends to POST /report
     lat: Optional[float] = None  # set only if the operator clicked the map
     lng: Optional[float] = None
     title: Optional[str] = None  # optional; generated from the text if missing
+
+
+class ResolveRequest(BaseModel):           # body for POST /resolve
+    incident_id: str
+
+
+class ResourceStatusRequest(BaseModel):    # body for POST /resource-status
+    resource_id: str
+    status: Literal["available", "unavailable"]

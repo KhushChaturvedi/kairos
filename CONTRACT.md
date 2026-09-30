@@ -5,12 +5,15 @@ Frontend: Next.js at http://localhost:3000
 
 ## Endpoints
 
-GET /state → returns State
-POST /event → triggers next scripted event, returns State
-POST /approve → body { "approval_id": string, "decision": "approve" | "reject" }, returns State
-POST /report → body { "description": string, "address"?: string, "lat"?: number, "lng"?: number, "title"?: string }, returns State
-POST /reset → returns State
+GET  /state            → returns State
+POST /report           → body { "description": string, "address"?: string, "lat"?: number, "lng"?: number, "title"?: string }, returns State
+POST /resolve          → body { "incident_id": string }, returns State
+POST /resource-status  → body { "resource_id": string, "status": "available" | "unavailable" }, returns State
+POST /approve          → body { "approval_id": string, "decision": "approve" | "reject" }, returns State
+POST /event            → plays the next step of the OPTIONAL demo scenario, returns State
+POST /reset            → empty city (no incidents, all units on standby), returns State
 
+The app starts EMPTY. Incidents come from operator reports (POST /report) or the optional demo scenario (POST /event).
 Every endpoint returns the FULL State. After any action, the frontend replaces its whole state with the response.
 
 ## Types
