@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+.venv/
+*.pyc
+
+# Node
+node_modules/
+.next/
+
+# Secrets (API keys)
+.env
+.env.local
+
+# Mac
+.DS_Store
