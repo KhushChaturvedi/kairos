@@ -1,7 +1,7 @@
 import { mockState } from "./mockState";
 import type { State } from "./types";
 
-const API_URL = "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export const USE_MOCK = false;
 
@@ -106,9 +106,7 @@ export async function reportIncident(
   return postJSON("/report", body);
 }
 
-export async function resolveIncident(
-  incidentId: string,
-): Promise<State> {
+export async function resolveIncident(incidentId: string): Promise<State> {
   if (USE_MOCK) {
     return cloneState(currentMockState);
   }
