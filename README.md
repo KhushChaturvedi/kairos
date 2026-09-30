@@ -117,7 +117,7 @@ The full data format is in [CONTRACT.md](CONTRACT.md).
 
 ## Limitations
 
-This was built in 48 hours, so there are some things we'd do differently with more time:
+This was built in 24 hours, so there are some things we'd do differently with more time:
 
 - Travel time uses straight line distance with a road factor, not real traffic. Swapping in a routing API would only change one function.
 - Everything is stored in memory, so restarting the server clears it. A real version would use a database.
