@@ -1,0 +1,14 @@
+{
+  "099226f5d2e35d85": {
+    "type": "accident",
+    "people_affected": 6,
+    "unclear": false,
+    "confidence": 0.95
+  },
+  "3f9a421df139c854": {
+    "type": "medical",
+    "people_affected": 1,
+    "unclear": false,
+    "confidence": 0.98
+  }
+}

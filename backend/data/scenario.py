@@ -25,18 +25,12 @@ STEPS: List[dict] = [
         "unavailable": ["AMB-04"],
         "resolve": [],
     },
-    # Click 2: an incident finishes, freeing its ambulance.
+    # Click 2: one incident closes, and a vague new report arrives nearby.
     {
         "log": [
-            "Maninagar cardiac patient handed over at LG Hospital. Incident closed."
+            "Maninagar cardiac patient handed over at LG Hospital. Incident closed.",
+            "New report: unclear call about people hurt near Kankaria Lake.",
         ],
-        "new_reports": [],
-        "unavailable": [],
-        "resolve": ["INC-03"],
-    },
-    # Click 3: a vague report. The freed ambulance is reused immediately.
-    {
-        "log": ["New report: unclear call about people hurt near Kankaria Lake."],
         "new_reports": [
             {
                 "id": "INC-05",
@@ -48,7 +42,7 @@ STEPS: List[dict] = [
             }
         ],
         "unavailable": [],
-        "resolve": [],
+        "resolve": ["INC-03"],
     },
 ]
 

@@ -177,6 +177,21 @@ def make_summary(
     text += "."
     if most:
         text += f" Highest priority: {most.title} (severity {most.severity})."
+
+    # Incidents that still don't have everything they need
+    res_type = {r.id: r.type for r in resources}
+    short = []
+    for i in active:
+        missing = list(i.needs)
+        for a in assignments:
+            t = res_type.get(a.resource_id)
+            if a.incident_id == i.id and t in missing:
+                missing.remove(t)
+        if missing:
+            short.append(f"{i.title} still needs {len(missing)} more unit(s)")
+    if short:
+        text += " Awaiting resources: " + "; ".join(short) + "."
+
     if pending:
         text += f" {pending} decision(s) waiting for your approval."
     return text
